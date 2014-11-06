@@ -159,7 +159,7 @@ static bool id_match(const struct slice *s, const u8 *id)
 	return memcmp(s->id, id, sizeof(s->id)) == 0;
 }
 
-static struct tx *find_by_slice(struct tx *txs, struct slice *s)
+static const struct tx *find_by_slice(const struct tx *txs, struct slice *s)
 {
 	size_t i, num = tal_count(txs);
 
@@ -170,7 +170,7 @@ static struct tx *find_by_slice(struct tx *txs, struct slice *s)
 	return NULL;
 }
 
-static bool remove_our_txs(struct invbloom *ib, struct tx *ourtxs)
+static bool remove_our_txs(struct invbloom *ib, const struct tx *ourtxs)
 {
 	size_t i;
 	bool progress = false;
@@ -180,7 +180,7 @@ static bool remove_our_txs(struct invbloom *ib, struct tx *ourtxs)
 		 * it's actually one our ours, and delete all the parts. */
 		if (ib->count[i] == -1) {
 			struct slice *s = slice_in_ib(ib, i);
-			struct tx *tx = find_by_slice(ourtxs, s);
+			const struct tx *tx = find_by_slice(ourtxs, s);
 
 			if (tx) {
 				/* This cancels out the tx. */
@@ -371,7 +371,7 @@ static struct tx *find_all_parts(struct invbloom *ib, const struct slice *one)
 	return tx;
 }
 
-static bool recover_their_txs(struct invbloom *ib, struct tx *theirtxs,
+static bool recover_their_txs(struct invbloom *ib, const struct tx *theirtxs,
 			      struct double_sha **txids_recovered)
 {
 	size_t i;
@@ -391,6 +391,7 @@ static bool recover_their_txs(struct invbloom *ib, struct tx *theirtxs,
 				tal_resize(txids_recovered, num_recovered+1);
 				(*txids_recovered)[num_recovered] = tx->txid;
 			}
+			tal_free(tx);
 		}
 	}
 
@@ -451,12 +452,38 @@ fail:
 	return false;
 }
 
+static void read_txs(const char *filename,
+		     unsigned int num_theirs, unsigned int num_ours,
+		     const struct tx **theirs, const struct tx **ours)
+{
+	FILE *txs = fopen(filename, "r");
+	struct tx *us, *them;
+	size_t i;
+
+	if (!txs)
+		err(1, "opening %s", filename);
+
+	them = tal_arr(NULL, struct tx, num_theirs);
+	us = tal_arr(NULL, struct tx, num_ours);
+
+	/* After subtraction, we'll have a table with all their txs added,
+	 * and our txs (which they don't have) subtracted. */
+	for (i = 0; i < tal_count(them); i++)
+		read_tx(txs, &them[i]);
+
+	for (i = 0; i < tal_count(us); i++)
+		read_tx(txs, &us[i]);
+	fclose(txs);
+
+	*theirs = them;
+	*ours = us;
+}
+
 int main(int argc, char *argv[])
 {
 	struct invbloom *ib;
 	size_t i, elemsize, run, runs, num_success = 0;
-	FILE *txs;
-	struct tx *theirtxs, *ourtxs;
+	const struct tx *theirtxs, *ourtxs;
 	struct double_sha *txids_recovered;
 	unsigned int max_mem = 1048576;
 	unsigned int hashsum_bytes = 0;
@@ -483,21 +510,7 @@ int main(int argc, char *argv[])
 	if (verbose)
 		printf("Making ib table of %zu elements\n", max_mem / elemsize);
 
-	txs = fopen(argv[3], "r");
-	if (!txs)
-		err(1, "opening %s", argv[3]);
-
-	theirtxs = tal_arr(NULL, struct tx, atoi(argv[1]));
-	ourtxs = tal_arr(NULL, struct tx, atoi(argv[2]));
-
-	/* After subtraction, we'll have a table with all their txs added,
-	 * and our txs (which they don't have) subtracted. */
-	for (i = 0; i < tal_count(theirtxs); i++)
-		read_tx(txs, &theirtxs[i]);
-
-	for (i = 0; i < tal_count(ourtxs); i++)
-		read_tx(txs, &ourtxs[i]);
-
+	read_txs(argv[3], atoi(argv[1]), atoi(argv[2]), &theirtxs, &ourtxs);
 	if (verbose)
 		printf("Read %zu transactions\n",
 		       tal_count(theirtxs) + tal_count(ourtxs));
