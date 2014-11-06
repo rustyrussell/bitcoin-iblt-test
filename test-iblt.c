@@ -170,7 +170,8 @@ static const struct tx *find_by_slice(const struct tx *txs, struct slice *s)
 	return NULL;
 }
 
-static bool remove_our_txs(struct invbloom *ib, const struct tx *ourtxs)
+static bool remove_our_txs(struct invbloom *ib, const struct tx *ourtxs,
+			   struct double_sha **txids_removed)
 {
 	size_t i;
 	bool progress = false;
@@ -183,9 +184,15 @@ static bool remove_our_txs(struct invbloom *ib, const struct tx *ourtxs)
 			const struct tx *tx = find_by_slice(ourtxs, s);
 
 			if (tx) {
+				size_t num_removed;
+
 				/* This cancels out the tx. */
 				add_tx(ib, tx);
 				progress = true;
+
+				num_removed = tal_count(*txids_removed);
+				tal_resize(txids_removed, num_removed+1);
+				(*txids_removed)[num_removed] = tx->txid;
 			}
 		}
 	}
@@ -426,19 +433,17 @@ static size_t find_tx(const struct tx *txs, size_t num,
 }
 
 /* Make sure they're all matched, only once. */
-static bool check_recovered(const struct tx *theirtxs,
-			    const struct double_sha *recovered)
+static bool all_txids(const struct tx *txs, const struct double_sha *txids)
 {
-	size_t i, num = tal_count(recovered), *matched;
+	size_t i, num = tal_count(txids), *matched;
 
 	matched = tal_arr(NULL, size_t, num);
 
-	if (tal_count(theirtxs) != num)
+	if (tal_count(txs) != num)
 		goto fail;
 
 	for (i = 0; i < num; i++) {
-		size_t match = find_tx(theirtxs, tal_count(theirtxs),
-				       recovered + i);
+		size_t match = find_tx(txs, tal_count(txs), txids + i);
 
 		if (match == (size_t)-1)
 			goto fail;
@@ -490,7 +495,7 @@ int main(int argc, char *argv[])
 	struct invbloom *ib;
 	size_t i, elemsize, run, runs, num_success = 0;
 	const struct tx *theirtxs, *ourtxs;
-	struct double_sha *txids_recovered;
+	struct double_sha *txids_recovered, *txids_removed;
 	unsigned int max_mem = 1048576;
 	unsigned int hashsum_bytes = 0;
 	bool verbose = false;
@@ -539,8 +544,9 @@ int main(int argc, char *argv[])
 			del_tx(ib, &ourtxs[i]);
 
 		txids_recovered = tal_arr(NULL, struct double_sha, 0);
+		txids_removed = tal_arr(NULL, struct double_sha, 0);
 		do {
-			progress = (remove_our_txs(ib, ourtxs)
+			progress = (remove_our_txs(ib, ourtxs, &txids_removed)
 				    || recover_their_txs(ib, theirtxs,
 							 &txids_recovered));
 			if (verbose) {
@@ -548,7 +554,8 @@ int main(int argc, char *argv[])
 			}
 		} while (progress);
 
-		if (check_recovered(theirtxs, txids_recovered)) {
+		if (all_txids(theirtxs, txids_recovered)
+		    && all_txids(ourtxs, txids_removed)) {
 			if (verbose)
 				printf("OK\n");
 			num_success++;
