@@ -388,7 +388,7 @@ static bool recover_their_txs(struct invbloom *ib, const struct tx *theirtxs,
 			struct slice *s = slice_in_ib(ib, i);
 			struct tx *tx = find_all_parts(ib, s);
 
-			if (tx) {
+			if (tx && id_match(s, tx->txid.sha)) {
 				size_t num_recovered;
 				del_tx(ib, tx);
 				progress = true;
