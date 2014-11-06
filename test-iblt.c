@@ -306,11 +306,17 @@ static bool parse_tx(const u8 *tx, size_t max_len, size_t *used)
 	/* version */
 	pull_u32(&tx, &max_len);
 	input_count = pull_varint(&tx, &max_len);
-	for (i = 0; i < input_count; i++)
+	for (i = 0; i < input_count; i++) {
 		pull_input(&tx, &max_len);
+		if (!tx)
+			return false;
+	}
 	output_count = pull_varint(&tx, &max_len);
-	for (i = 0; i < output_count; i++)
+	for (i = 0; i < output_count; i++) {
 		pull_output(&tx, &max_len);
+		if (!tx)
+			return false;
+	}
 	/* lock_time */
 	pull_u32(&tx, &max_len);
 
