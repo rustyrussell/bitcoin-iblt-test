@@ -499,7 +499,6 @@ int main(int argc, char *argv[])
 	const struct tx *theirtxs, *ourtxs;
 	struct double_sha *txids_recovered, *txids_removed;
 	unsigned int max_mem = 1048576;
-	unsigned int hashsum_bytes = 0;
 	bool verbose = false;
 
 	err_set_progname(argv[0]);
@@ -517,8 +516,8 @@ int main(int argc, char *argv[])
 	if (argc != 5)
 		errx(1, "Usage: test-txs <numtxsadded> <numtxsmissing> <txfile> <runs>");
 
-	/* ibt needs a counter and (optionally) another hash sum entry */
-	elemsize = sizeof(struct slice) + sizeof(u32) + hashsum_bytes;
+	/* ibt needs a counter as well */
+	elemsize = sizeof(struct slice) + sizeof(u32);
 
 	if (verbose)
 		printf("Making ib table of %zu elements\n", max_mem / elemsize);
@@ -534,7 +533,7 @@ int main(int argc, char *argv[])
 		bool progress;
 
 		ib = invbloom_new(NULL, struct slice, max_mem / elemsize,
-				  hashsum_bytes, run);
+				  run);
 
 		if (verbose) {
 			printf(">"); fflush(stdout);
