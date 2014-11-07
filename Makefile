@@ -6,9 +6,14 @@ LDLIBS := -lcrypto
 LDFLAGS := $(OPT)
 
 CCAN_OBJS := ccan-tal.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-noerr.o ccan-hash.o ccan-err.o ccan-invbloom.o
-CCANDIR=../ccan/
+CCANDIR=ccan/
 
 all: test-iblt test-iblt64 test-iblt256
+
+test-iblt.o: ccan/config.h
+
+ccan/config.h: ccan/configurator/configurator
+	$< > $@
 
 test-iblt: test-iblt.o $(CCAN_OBJS)
 

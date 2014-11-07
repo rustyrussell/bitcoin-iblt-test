@@ -1,3 +1,7 @@
 *.o
 test-iblt
+test-iblt64
+test-iblt256
+ccan/config.h
+ccan/configurator/configurator
 *~
