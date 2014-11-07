@@ -8,10 +8,25 @@ LDFLAGS := $(OPT)
 CCAN_OBJS := ccan-tal.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-noerr.o ccan-hash.o ccan-err.o ccan-invbloom.o
 CCANDIR=../ccan/
 
+all: test-iblt test-iblt64 test-iblt256
+
 test-iblt: test-iblt.o $(CCAN_OBJS)
 
+test-iblt64: test-iblt64.o $(CCAN_OBJS)
+
+test-iblt256: test-iblt256.o $(CCAN_OBJS)
+
+test-iblt64.o: test-iblt.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+test-iblt256.o: test-iblt.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+test-iblt64.o: CFLAGS += -DSLICE_BYTES=64
+test-iblt256.o: CFLAGS += -DSLICE_BYTES=256
+
 clean:
-	rm -f $(CCAN_OBJS) test-iblt.o
+	rm -f $(CCAN_OBJS) test-iblt.o test-iblt test-iblt64 test-iblt256
 
 ccan-tal.o: $(CCANDIR)/ccan/tal/tal.c
 	$(CC) $(CFLAGS) -c -o $@ $<

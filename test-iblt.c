@@ -10,7 +10,9 @@
 #include <stdio.h>
 #include <assert.h>
 
+#ifndef SLICE_BYTES
 #define SLICE_BYTES 8
+#endif
 
 struct slice {
 	u8 id[6];
